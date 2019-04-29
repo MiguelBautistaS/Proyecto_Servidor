@@ -13,48 +13,109 @@ cursor = conexion.cursor()
 
 @app.route("/api/v1/materias/")
 def hello():
-    query = "SELECT oferta.nrc, clave.clave, clave.materia, seccion.seccion, profesor.nombre, detalle.creditos, detalle.cupos_totales, detalle.cupos_disponibles, dia.identificador, dia.dia, oferta.carrera FROM dias left join oferta on oferta.nrc = dias.nrc left join clave on clave.id = oferta.id_clave left join seccion on seccion.id = oferta.id_seccion left join profesor on profesor.id = oferta.id_profesor left join detalle on detalle.id = oferta.id_detalle left join dia on dia.id = dias.id_dia"
+
+    query = 'select * from oferta'
     cursor.execute(query)
     ofertas = cursor.fetchall()
+    lista_materias = []
 
-    lista_ofertas = []
     for oferta in ofertas:
-        query2 = "SELECT hora.hora from horarios left join horario on horario.id = horarios.id_horario left join hora on hora.id = horario.hora_inicial left join oferta on oferta.nrc = horarios.nrc where oferta.nrc =" + str(oferta[0])
-        cursor.execute(query2)
-        horaI = cursor.fetchall()
-        query3 = "SELECT hora.hora from horarios left join horario on horario.id = horarios.id_horario left join hora on hora.id = horario.hora_final left join oferta on oferta.nrc = horarios.nrc where oferta.nrc =" + str(oferta[0])
-        cursor.execute(query3)
-        horaF = cursor.fetchall()
-        query4 = "SELECT periodo.periodo from horarios left join horario on horario.id = horarios.id_horario left join periodo on periodo.id = horario.periodo left join oferta on oferta.nrc = horarios.nrc where oferta.nrc =" + str(oferta[0])
-        cursor.execute(query4)
-        per = cursor.fetchall()
-        query5 = "SELECT aula.aula from aulas left join aula on aula.id = aulas.id_aula left join oferta on oferta.nrc = aulas.nrc where oferta.nrc =" + str(oferta[0])
-        cursor.execute(query5)
-        au = cursor.fetchall()
-        query6 = "SELECT edificio.edificio from edificios left join edificio on edificio.id = edificios.id_edificio left join oferta on oferta.nrc = edificios.nrc where oferta.nrc =" + str(oferta[0])
-        cursor.execute(query6)
-        edif = cursor.fetchall()
+        nrc = oferta[0]
+        id_clave = oferta[1]
+        id_seccion = oferta[2]
+        id_detalle = oferta[3]
+        id_profesor = oferta[4]
+        carrera = oferta[5]
 
-        c = {
-            'nrc': oferta[0],
-            'carrera': oferta[10],
-            'clave': oferta[1],
-            'materia': oferta[2],
-            'seccion': oferta[3],
-            'profesor': oferta[4],
-            'creditos': oferta[5],
-            'cupos_totales': oferta[6],
-            'cupos_disponibles': oferta[7],
-            'dia':oferta[8],
-            'dia_iden':oferta[9],
-            'hora_inicial':horaI[0],
-            'hora_final':horaF[0],
-            'periodo':per[0],
-            'edificio': edif[0],
-            'aula':au[0]
+        query2 = 'select * from detalle where nrc = %s'
+        cursor.execute(query2, (nrc,))
+        detalle = cursor.fetchall()
+
+        creditos = detalle[1]
+        ct = detalle[2]
+        cd = detalle[3]
+
+        query3 = 'select clave, materia from clave where id = %s'
+        cursor.execute(query3, (id_clave,))
+        cla = cursor.fetchall()
+
+        clave = cla[0]
+        materia = cla[1]
+
+
+        query4 = 'select id_horario from horarios where nrc = %s'
+        cursor.execute(query4, (nrc,))
+        id_horarios = cursor.fetchall()
+
+        query5 = 'select id_dia from dias where nrc = %s'
+        cursor.execute(query5, (nrc,))
+        id_dias = cursor.fetchall()
+
+        query6 = 'select id_aula from aulas where nrc = %s'
+        cursor.execute(query6, (nrc,))
+        id_aulas = cursor.fetchall()
+
+        horarios =[]
+        for id_horario in id_horarios:
+            query7 = 'select * from horario where id = %s'
+            cursor.execute(query7, (id_horario,))
+            hr = cursor.fetchall()
+            horario ={
+                'hi': hr[1],
+                'hf': hr[2],
+                'periodo': hr[3]
+            }
+            horarios.append(horario)
+
+        dias = []
+        for id_dia in id_dias:
+            query8 = 'select dia from dia where id = %s'
+            cursor.execute(query8, (id_dia,))
+            di = cursor.fetchall()
+            dia = {
+                'dia': di[0]
+            }
+            dias.append(dia)
+
+
+        aulas = []
+        for id_aula in id_aulas:
+            query9 = 'select aula, edificio from aula where id = %s'
+            cursor.execute(query9, (id_aula,))
+            au = cursor.fetchall()
+
+            query10 = 'select edificio from edificio where id = %s'
+            cursor.execute(query10, (au[1],))
+            edificio = cursor.fetchall()
+
+            aula = {
+                'aula': au[0],
+                'edificio': edificio
+            }
+            aulas.append(aula)
+
+        count = len(id_dias)
+
+        infos = []
+        for i in range(count):
+            info = {
+                'horario': horarios[i],
+                'dia':dias[i],
+                'aula':aulas[i]
+            }
+            infos.append(info)
+
+        materia ={
+            'nrc':nrc,
+            'carrera':carrera,
+            'creditos':creditos,
+            'cupos_totales':ct,
+            'cupos_disponibles': cd,
+            'clave': clave,
+            'materia':materia,
+            'horarios': infos
         }
 
-        lista_ofertas.append(c)
-    return jsonify(ofertas = lista_ofertas)
-
+        lista_materias.append(materia)
+    return jsonify(ofertas = lista_materias)
 app.run()
